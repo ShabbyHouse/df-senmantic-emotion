@@ -1,38 +1,55 @@
-import sys
 import pandas as pd
 import jieba
 
+stopwords = []
+with open("./stopwords.txt") as f:
+    stopwords = [word.strip() for word in f.readlines()]
 
-class PreProcess(object):
-    def __init__(self,file_name,pro_name='df'):
-        self.file_name = file_name
-        self.pro_name = pro_name
-        self.embedding_dim = 256
 
-    def read_csv_file(self):
-        sys.reload(sys)
-        sys.setdefaultencoding('utf-8')
+def seg_words(text):
+    segged_data = []
+    for index, line in enumerate(text.values):
+        words = jieba.cut(str(line[1]))
+        result_word = [word for word in words if word not in stopwords and word != '\n' and word != ' ']
+        segged_data.append([line[0], result_word])
+    segged_df = pd.DataFrame(data=segged_data, columns=('id', 'content'))
+    return segged_df
 
-        data = pd.read_csv(self.file_name,sep=',')
-        x = data.content.values
-        y = data[self.pro_name].values
 
-        return x,y
+def train_process(data_path,label_path,word_path):
+    train_data = pd.read_csv(data_path)
 
-    def clean_stop_words(self,sentences):
-        stop_words = None
-        with open('./stop_words.txt','r') as f:
-            stop_words = f.readlines()
-            stop_words = [line.replace("\n","") for line in stop_words]
+    text = pd.DataFrame()
+    text['id'] = train_data['id']
+    text['content'] = train_data['title'] + train_data['content']
+    segged_words = seg_words(text)
+    train_label = pd.read_csv(label_path, sep=',')
+    train = pd.merge(segged_words, train_label, on=['id'], copy=False)
+    train.to_csv(word_path, index=False)
 
-        for i,line in enumerate(sentences):
-            for word in stop_words:
-                if word in line:
-                    line = line.replace(word,"")
-            sentences[i] = line
 
-        return sentences
+def test_process(data_path,word_path):
+    test_data = pd.read_csv(data_path)
 
-    def get_words_after_jieba(self,sentences):
-        words_after_jieba = [[word for word in jieba.cut(line) if word.strip()] for line in sentences]
-        return words_after_jieba
+    text = pd.DataFrame()
+    text['id'] = test_data['id']
+    text['content'] = test_data['title'] + test_data['content']
+    segged_words = seg_words(text)
+    segged_words.to_csv(word_path, index=False)
+
+if __name__ == '__main__':
+    #  处理train数据
+    train_data_path = './datas/Train/Train_DataSet.csv'
+    train_label_path = './datas/Train/Train_DataSet_Label.csv'
+    train_word_path = './datas/Train/train_word.csv'
+
+    train_data_path_sample_10 = './datas/Train/Train_DataSet_sample_10.csv'
+    train_label_path_sample_10 = './datas/Train/Train_DataSet_Label_sample_10.csv'
+    train_word_path_sample_10 = './datas/Train/train_word_sample_10.csv'
+    # train_process(train_data_path,train_label_path,train_word_path)
+
+    # 处理test数据
+    test_data_path = './datas/Test_DataSet.csv'
+    test_word_path = './datas/test_word.csv'
+
+    test_process(test_data_path,test_word_path)
